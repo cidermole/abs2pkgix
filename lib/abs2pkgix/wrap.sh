@@ -38,15 +38,43 @@ iscompat() {
 		|| in_list "$architecture" "${arch[@]}"
 }
 
+# parse a source spec like ${pkgname}-${pkgver}.tar.gz::"https://github.com/open-source-parsers/${pkgname}/archive/${pkgver}.tar.gz"
+# e.g. for jsoncpp
+#
+my_get_fetch_target() {
+	local source_spec="$1"
+	local replace
+	replace=$(echo "$source_spec" | awk 'BEGIN {FS="::"; ORS="\t"} {for(i=1;i<=NF;i++)print $i}')
+	IFS=$'\t' read -ra source_spec_parts <<< "$replace"
+	if [[ ${#source_spec_parts[@]} -eq 2 ]]; then
+		echo "${source_spec_parts[0]}"
+	else
+		echo "$(get_fetch_target "$source_spec")"
+	fi
+}
+my_get_url() {
+	local source_spec="$1"
+	local replace
+	replace=$(echo "$source_spec" | awk 'BEGIN {FS="::"; ORS="\t"} {for(i=1;i<=NF;i++)print $i}')
+	IFS=$'\t' read -ra source_spec_parts <<< "$replace"
+	if [[ ${#source_spec_parts[@]} -eq 2 ]]; then
+		echo "${source_spec_parts[1]}"
+	else
+		echo "$source_spec"
+	fi
+}
+
 _fetch_sources() {
 	local i
 	local url
+	local source_spec
 	local checksum
 	local file_name
 	for (( i=0 ; i < ${#source[@]}; ++i )); do
-		url="${source[i]}"
+		source_spec="${source[i]}"
 		checksum="${_checksums[i]}"
-		file_name="$(get_fetch_target "$url")"
+		file_name="$(my_get_fetch_target "$source_spec")"
+		url="$(my_get_url "$source_spec")"
 
 		if [[ "$file_name" == "$url" ]]; then
 			url="${repo}/../support/${pkgname}/${url}"
